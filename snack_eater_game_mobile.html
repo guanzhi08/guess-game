@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>零食貪食者 - 行動版</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f9f7f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #333;
+            /* 響應式設計優化 */
+            padding: 20px;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 100%;
+            max-width: 400px; /* 限制最大寬度，保持可讀性 */
+            border: 3px solid #ffc107; 
+        }
+        h1 {
+            color: #d32f2f;
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 1em;
+            margin-bottom: 20px;
+            color: #666;
+        }
+        #scoreDisplay {
+            font-size: 3em;
+            font-weight: bold;
+            color: #f57c00;
+            margin-bottom: 30px;
+            display: block;
+        }
+        #snackButton {
+            /* 放大按鈕，確保在觸控螢幕上夠大 */
+            padding: 20px 40px;
+            width: 100%; /* 佔滿容器寬度 */
+            height: 150px;
+            box-sizing: border-box; /* 確保padding不影響總寬度 */
+            background-color: #ff9800; 
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.5em;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+            user-select: none; 
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+        }
+        #snackButton:hover {
+            background-color: #fb8c00;
+            transform: scale(1.02);
+        }
+        #snackButton:active {
+            transform: scale(0.98);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="title">🍪 零食貪食者 - 行動版</h1>
+        <p>點擊按鈕，讓零食戰鬥力拉滿！</p>
+        
+        <div id="scoreDisplay">0</div>
+        
+        <button id="snackButton">
+            點擊開始貪食！
+        </button>
+        
+        <p id="resetMessage" style="margin-top: 20px; color: #999;">
+            <!-- 遊戲結束時顯示的訊息 -->
+        </p>
+    </div>
+
+    <script>
+        // --- 遊戲變數 ---
+        let score = 0;
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const snackButton = document.getElementById('snackButton');
+        const resetMessage = document.getElementById('resetMessage');
+
+        // --- 核心邏輯 ---
+
+        /**
+         * 更新分數顯示
+         * @param {number} points - 增加的分數
+         */
+        function updateScore(points) {
+            score += points;
+            scoreDisplay.textContent = score;
+        }
+
+        /**
+         * 點擊/觸控處理函數
+         */
+        function handleSnackClick() {
+            // 1. 視覺回饋：增加一個縮小放大動畫
+            snackButton.style.transform = 'scale(0.95)';
+            // 使用 setTimeout 模擬動畫延遲，讓用戶感知到互動
+            setTimeout(() => {
+                snackButton.style.transform = 'scale(1)';
+            }, 100);
+
+            // 2. 增加分數
+            const earnedPoints = Math.floor(Math.random() * 5) + 1; // 每次點擊賺取 1 到 5 分
+            updateScore(earnedPoints);
+
+            // 3. 遊戲結束條件 (設定一個目標分數，例如 1000 分)
+            if (score >= 1000) {
+                disableGame();
+                displayWinMessage();
+            }
+        }
+
+        /**
+         * 顯示遊戲結束訊息
+         */
+        function displayWinMessage() {
+            // 關閉點擊事件，讓按鈕變成重置按鈕
+            snackButton.removeEventListener('click', handleSnackClick);
+            
+            document.getElementById('title').textContent = "🏆 貪食者大挑戰！";
+            document.getElementById('resetMessage').innerHTML = `您的最終得分是：<span style="color: #d32f2f; font-size: 1.5em;">${score}</span> 分！`;
+            snackButton.innerHTML = "🔥 重點擊開始新遊戲 🔥";
+            snackButton.onclick = () => {
+                window.location.reload(); // 重新載入頁面，重置遊戲
+            };
+        }
+
+        /**
+         * 禁用按鈕並顯示遊戲結束狀態
+         */
+        function disableGame() {
+            snackButton.disabled = true;
+        }
+
+        /**
+         * 初始化遊戲
+         */
+        function initializeGame() {
+            score = 0;
+            
+            // 重置 UI
+            scoreDisplay.textContent = 0;
+            snackButton.innerHTML = "點擊開始貪食！";
+            snackButton.disabled = false;
+            resetMessage.textContent = '';
+            
+            // 清除事件監聽器，防止重複綁定
+            snackButton.removeEventListener('click', handleSnackClick);
+            
+            // 重新綁定事件監聽器 (關鍵步驟，確保單一事件處理)
+            snackButton.addEventListener('click', handleSnackClick);
+        }
+
+        // --- 事件監聽器 (優化為包含觸控觸發) ---
+        // 1. 模擬滑鼠點擊事件
+        snackButton.addEventListener('click', handleSnackClick);
+        
+        // 2. 模擬觸控事件 (必須添加，確保手機也能點擊)
+        snackButton.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // 預防瀏覽器預設行為（如滾動）
+            handleSnackClick();
+        });
+
+        // 初始化遊戲
+        initializeGame();
+    </script>
+</body>
+</html>
