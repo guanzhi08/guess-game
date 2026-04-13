@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>數字猜謎遊戲 | Guess The Number</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 450px;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
+        #controls {
+            margin-bottom: 25px;
+        }
+        #difficulty {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 15px;
+        }
+        #guess-area {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        input[type="number"] {
+            padding: 10px;
+            flex-grow: 1;
+            max-width: 200px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 1em;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            min-height: 30px;
+        }
+        .success {
+            background-color: #e6ffe6;
+            border: 1px solid #38a169;
+            color: #38a169;
+        }
+        .hint {
+            background-color: #fff0b3;
+            border: 1px solid #f6e05e;
+            color: #9c6600;
+        }
+        .error {
+            background-color: #ffe6e6;
+            border: 1px solid #e53e3e;
+            color: #c53030;
+        }
+        #attempts {
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔢 數字猜謎遊戲</h1>
+        <p>本遊戲隨機產生一個範圍內的密碼數字，請您猜測它！</p>
+        
+        <div id="controls">
+            <label for="difficulty">選擇範圍:</label>
+            <select id="difficulty">
+                <option value="1_100">1 - 100 (簡單)</option>
+                <option value="1_1000">1 - 1000 (中等)</option>
+                <option value="1_10000">1 - 10000 (困難)</option>
+            </select>
+            <button onclick="initializeGame()">重新開始</button>
+        </div>
+
+        <div id="guess-area">
+            <input type="number" id="guessInput" placeholder="請輸入您的猜測數字" min="1" max="10000">
+            <button id="guessButton">提交猜測</button>
+        </div>
+        
+        <div id="message"></div>
+        <div id="attempts">嘗試次數: 0</div>
+    </div>
+
+    <script>
+        // Game Variables
+        let secretNumber = 0;
+        let attemptsCount = 0;
+        let rangeMin = 1;
+        let rangeMax = 100;
+
+        // DOM Elements
+        const guessInput = document.getElementById('guessInput');
+        const guessButton = document.getElementById('guessButton');
+        const messageDisplay = document.getElementById('message');
+        const attemptsDisplay = document.getElementById('attempts');
+        const difficultySelect = document.getElementById('difficulty');
+
+        // Initial setup
+        function initializeGame() {
+            const range = difficultySelect.value;
+            const [minStr, maxStr] = range.split('_');
+            rangeMin = parseInt(minStr);
+            rangeMax = parseInt(maxStr);
+
+            // Generate new secret number within the selected range
+            secretNumber = Math.floor(Math.random() * (rangeMax - rangeMin + 1)) + rangeMin;
+            
+            attemptsCount = 0;
+            
+            messageDisplay.textContent = '';
+            messageDisplay.className = '';
+            attemptsDisplay.textContent = '嘗試次數: 0';
+            guessInput.value = '';
+            guessInput.disabled = false;
+            guessButton.disabled = false;
+            guessInput.focus();
+            
+            // For development/testing reference
+            console.log("--- 遊戲已重置 ---");
+            console.log(`新的密碼數字是: ${secretNumber}`);
+        }
+
+        function checkGuess() {
+            const userGuess = parseInt(guessInput.value);
+
+            // 1. 輸入驗證
+            if (isNaN(userGuess) || userGuess < rangeMin || userGuess > rangeMax) {
+                displayMessage(`請輸入一個介於 ${rangeMin} 到 ${rangeMax} 之間的有效數字。`, 'error');
+                return;
+            }
+
+            // 2. 邏輯判斷
+            attemptsCount++;
+            attemptsDisplay.textContent = `嘗試次數: ${attemptsCount}`;
+            
+            if (userGuess < secretNumber) {
+                displayMessage("太低了！請再猜一個更大的數字。", 'hint');
+            } else if (userGuess > secretNumber) {
+                displayMessage("太高了！請再猜一個更小的數字。", 'hint');
+            } else {
+                // 勝利條件
+                displayMessage(`🎉 恭喜您！您在 ${attemptsCount} 次嘗試後猜對了數字 ${secretNumber}！`, 'success');
+                disableGame();
+            }
+
+            // 3. 清理
+            guessInput.value = '';
+            guessInput.focus();
+        }
+
+        function displayMessage(message, type) {
+            messageDisplay.textContent = message;
+            messageDisplay.className = ''; // 清除上一個類別
+            if (type === 'success') {
+                messageDisplay.classList.add('success');
+            } else if (type === 'hint') {
+                messageDisplay.classList.add('hint');
+            } else if (type === 'error') {
+                messageDisplay.classList.add('error');
+            }
+        }
+        
+        function disableGame() {
+            guessInput.disabled = true;
+            guessButton.disabled = true;
+            // 讓遊戲結束後，可以點擊重新開始
+        }
+
+        // Event Listeners
+        guessButton.addEventListener('click', checkGuess);
+        
+        // 允許按下 Enter 鍵提交猜測
+        guessInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                checkGuess();
+            }
+        });
+
+        // 首次載入遊戲時，初始化遊戲
+        initializeGame();
+    </script>
+</body>
+</html>
