@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>零食貪食者 - Snack Eater</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f9f7f4; /* 類似零食包裝紙的淺色背景 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            text-align: center;
+            width: 90%;
+            max-width: 500px;
+            border: 5px solid #ffc107; /* 模擬零食包裝的邊框 */
+        }
+        h1 {
+            color: #d32f2f; /* 食物類的紅色/橘色 */
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            color: #666;
+        }
+        #scoreDisplay {
+            font-size: 4em;
+            font-weight: bold;
+            color: #f57c00; /* 突出顯示分數 */
+            margin-bottom: 30px;
+            display: block;
+        }
+        #snackButton {
+            background-color: #ff9800; /* 誘人的橙色 */
+            border: none;
+            border-radius: 50%; /* 讓按鈕看起來像零食/按鈕 */
+            width: 200px;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+            user-select: none; /* 防止選文字 */
+            background-size: contain; /* 確保背景圖片按比例顯示 */
+            background-repeat: no-repeat;
+            background-position: center;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+        }
+        #snackButton:hover {
+            background-color: #fb8c00;
+            transform: scale(1.02);
+        }
+        #snackButton:active {
+            transform: scale(0.98);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        /* 模擬零食圖標 (可以用背景圖片替換) */
+        #snackButton::before {
+            content: "🍬🍪🍭";
+            /* 這裡可以用一個實體的圖片路徑替換 */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="title">🍪 零食貪食者</h1>
+        <p>點擊圖片，看您能吃下多少零食的卡路里！</p>
+        
+        <div id="scoreDisplay">0</div>
+        
+        <button id="snackButton">
+            點我吃零食！
+        </button>
+        
+        <p id="resetMessage" style="margin-top: 20px; color: #999;">
+            <!-- 遊戲結束時顯示的訊息 -->
+        </p>
+    </div>
+
+    <script>
+        // --- 遊戲變數 ---
+        let score = 0;
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const snackButton = document.getElementById('snackButton');
+        const resetMessage = document.getElementById('resetMessage');
+
+        // --- 核心邏輯 ---
+
+        /**
+         * 更新分數顯示
+         * @param {number} points - 增加的分數
+         */
+        function updateScore(points) {
+            score += points;
+            scoreDisplay.textContent = score;
+        }
+
+        /**
+         * 點擊處理函數
+         */
+        function handleSnackClick() {
+            // 1. 視覺回饋：增加一個跳動效果
+            snackButton.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                snackButton.style.transform = 'scale(1)';
+            }, 100);
+
+            // 2. 增加分數
+            const earnedPoints = Math.floor(Math.random() * 5) + 1; // 每次點擊賺取 1 到 5 分
+            updateScore(earnedPoints);
+
+            // 3. 遊戲結束條件 (例如，達到 1000 分後)
+            if (score >= 1000 && score < 10000) {
+                disableGame();
+                displayWinMessage();
+            }
+        }
+
+        /**
+         * 結束遊戲並顯示訊息
+         */
+        function displayWinMessage() {
+            snackButton.disabled = true;
+            document.getElementById('title').textContent = "🏆 貪食者大挑戰！";
+            document.getElementById('resetMessage').innerHTML = `您的最終得分是：<span style="color: #d32f2f; font-size: 1.5em;">${score}</span> 分！`;
+            snackButton.innerHTML = "重新開始";
+            snackButton.onclick = () => {
+                window.location.reload(); // 重新載入頁面，重置遊戲
+            };
+            snackButton.style.cursor = 'pointer';
+        }
+
+        /**
+         * 設置事件監聽器
+         */
+        snackButton.addEventListener('click', handleSnackClick);
+
+    </script>
+</body>
+</html>
