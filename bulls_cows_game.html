@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>牛母牛遊戲 | Bulls and Cows</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 450px;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
+        #game-area {
+            margin-bottom: 25px;
+        }
+        .guess-input {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .guess-input input[type="number"] {
+            padding: 10px;
+            width: 70px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 1em;
+            text-align: center;
+            width: 100%;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            min-height: 30px;
+        }
+        .success {
+            background-color: #e6ffe6;
+            border: 1px solid #38a169;
+            color: #38a169;
+        }
+        .hint {
+            background-color: #fff0b3;
+            border: 1px solid #f6e05e;
+            color: #9c6600;
+        }
+        .error {
+            background-color: #ffe6e6;
+            border: 1px solid #e53e3e;
+            color: #c53030;
+        }
+        #attempts {
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body id="bg">
+    <div class="container">
+        <h1 id="title">🔢 牛母牛猜數字遊戲</h1>
+        <p id="instructions">我正在思考一個由 4 個數字（每個數字介於 1 到 6 之間）組成的密碼。請猜測它！</p>
+        
+        <div id="game-area">
+            <div class="guess-input">
+                <input type="number" id="digit1" class="digit-input" min="1" max="6" maxlength="1" placeholder="" pattern="[1-6]">
+                <input type="number" id="digit2" class="digit-input" min="1" max="6" maxlength="1" placeholder="" pattern="[1-6]">
+                <input type="number" id="digit3" class="digit-input" min="1" max="6" maxlength="1" placeholder="" pattern="[1-6]">
+                <input type="number" id="digit4" class="digit-input" min="1" max="6" maxlength="1" placeholder="" pattern="[1-6]">
+            </div>
+            <button id="guessButton">提交猜測</button>
+        </div>
+        
+        <div id="message"></div>
+        <div id="attempts">嘗試次數: 0</div>
+    </div >
+
+    <script>
+        // --- 遊戲變數 ---
+        let secretNumber = []; // 儲存 [d1, d2, d3, d4]
+        let attemptsCount = 0;
+        const CODE_LENGTH = 4;
+        const MIN_DIGIT = 1;
+        const MAX_DIGIT = 6;
+
+        // --- DOM 元素 ---
+        const digitInputs = [];
+        for (let i = 1; i <= CODE_LENGTH; i++) {
+            digitInputs.push(document.getElementById(`digit${i}`));
+        }
+        const guessButton = document.getElementById('guessButton');
+        const messageDisplay = document.getElementById('message');
+        const attemptsDisplay = document.getElementById('attempts');
+
+        // --- 核心邏輯 ---
+
+        /**
+         * 生成一個隨機的 4 位數密碼 (每個數字介於 1 到 6)
+         */
+        function generateSecretCode() {
+            let code = [];
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                // 這裡確保數字是從 MIN_DIGIT 到 MAX_DIGIT 之間隨機取一個
+                code.push(Math.floor(Math.random() * (MAX_DIGIT - MIN_DIGIT + 1)) + MIN_DIGIT);
+            }
+            return code;
+        }
+
+        /**
+         * 判斷猜測的密碼與秘密密碼的 Bulls & Cows 數量
+         * @param {number[]} secret - 秘密密碼陣列
+         * @param {number[]} guess - 玩家猜測的數字陣列
+         * @returns {object} {bulls: N, cows: N}
+         */
+        function checkBullsAndCows(secret, guess) {
+            let bulls = 0;
+            let cows = 0;
+
+            // 1. 計算 Bulls (正確位置且數字正確)
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                if (guess[i] === secret[i]) {
+                    bulls++;
+                }
+            }
+
+            // 2. 計算 Cows (數字正確但位置錯誤)
+            // 我們需要先標記掉 Bulls 已經計算過的位置，避免重複計算
+            let secretCopy = [...secret];
+            let guessCopy = [...guess];
+            
+            // 移除 bulls 所在的數字，避免它們被計入 Cows
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                if (guess[i] === secret[i]) {
+                    secretCopy[i] = 0; // 標記為已匹配
+                    guessCopy[i] = 0;
+                }
+            }
+            
+            // 統計剩餘數字的共現次數
+            let secretDigits = secretCopy.filter(d => d !== 0);
+            let guessDigits = guessCopy.filter(d => d !== 0);
+            
+            // 使用 Set 來確保計算的準確性，但這裡簡化為簡單計數
+            for (let i = 0; i < guessDigits.length; i++) {
+                const digit = guessDigits[i];
+                // 計算這個數字在剩餘 secretDigits 陣列中出現的次數
+                let count = 0;
+                for (let j = 0; j < secretDigits.length; j++) {
+                    if (secretDigits[j] === digit) {
+                        count++;
+                    }
+                }
+                cows += Math.min(1, count); // 最多只能為一個數字貢獻一次 Cows
+            }
+            
+            // 簡化的 Cows 計算方式 (更穩健的數學方法)
+            let totalMatches = 0;
+            for (let i = 1; i <= MAX_DIGIT; i++) {
+                let secretCount = 0;
+                let guessCount = 0;
+                for (const d of secret) if (d === i) secretCount++;
+                for (const d of guess) if (d === i) guessCount++;
+                
+                // 總匹配數 (Total digits present in both)
+                totalMatches += Math.min(secretCount, guessCount);
+            }
+            
+            // Cows = (總匹配數 - Bulls)
+            cows = totalMatches - bulls;
+
+
+            return { bulls: bulls, cows: cows };
+        }
+
+        /**
+         * 判斷遊戲是否結束，並更新訊息顯示
+         * @param {object} result - 遊戲結果 {bulls: N, cows: N}
+         * @param {boolean} isWin - 是否猜對了
+         */
+        function displayResult(result, isWin) {
+            let messageText = `您猜測的密碼的結果是：\n`;
+            if (result.bulls > 0) {
+                messageText += `🔥 ${result.bulls} 個數字位置完全正確 (Bulls)。\n`;
+            }
+            if (result.cows > 0) {
+                messageText += `🌊 ${result.cows} 個數字只是出現了，但位置不正確 (Cows)。\n`;
+            }
+            if (result.bulls === 0 && result.cows === 0) {
+                messageText += `❌ 沒有數字匹配到密碼。`;
+            }
+
+            // 顯示遊戲狀態
+            if (isWin) {
+                displayMessage(`🏆 恭喜！您在 ${attemptsCount} 次嘗試後成功猜對了密碼！${messageText}`, 'success');
+            } else {
+                displayMessage(`💡 提示：${messageText}`, 'hint');
+            }
+        }
+
+
+        /**
+         * 主遊戲邏輯：檢查猜測
+         */
+        function checkGuess() {
+            // 1. 獲取輸入的數字
+            let guessDigits = [];
+            let allFilled = true;
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                const input = digitInputs[i];
+                const value = parseInt(input.value);
+                if (isNaN(value) || value < MIN_DIGIT || value > MAX_DIGIT) {
+                    allFilled = false;
+                    break;
+                }
+                guessDigits.push(value);
+            }
+            
+            // 2. 輸入驗證
+            if (!allFilled) {
+                displayMessage("請務必填入所有 4 個數字，且每個數字必須在 1 到 6 之間。", 'error');
+                return;
+            }
+
+            // 3. 核心判斷
+            attemptsCount++;
+            attemptsDisplay.textContent = `嘗試次數: ${attemptsCount}`;
+            
+            // 遊戲結果計算
+            const result = checkBullsAndCows(secretNumber, guessDigits);
+            
+            // 檢查是否勝利 (密碼猜對， Bulls 必須是 4)
+            const isWin = result.bulls === CODE_LENGTH;
+
+            // 4. 顯示結果並重置 UI
+            displayResult(result, isWin);
+
+            if (isWin) {
+                disableGame();
+                messageDisplay.innerHTML += `<br><br>密碼是：${secretNumber.join('')}`;
+            }
+        }
+
+
+        /**
+         * 遊戲初始化
+         */
+        function initializeGame() {
+            // 重新生成密碼
+            secretNumber = generateSecretCode();
+            attemptsCount = 0;
+            
+            // 重置 UI
+            messageDisplay.textContent = '';
+            messageDisplay.className = '';
+            attemptsDisplay.textContent = '嘗試次數: 0';
+            
+            // 清空所有輸入欄位
+            for (const input of digitInputs) {
+                input.value = '';
+                input.disabled = false;
+            }
+            
+            // 啟用按鈕
+            guessButton.disabled = false;
+            document.getElementById('title').textContent = "🔢 牛母牛猜數字遊戲";
+            document.getElementById('instructions').textContent = "我正在思考一個由 4 個數字 (1-6) 組成的密碼。請猜測它！";
+            console.log("--- 遊戲已重置 ---");
+            console.log("新的密碼數字陣列 (用於測試):", secretNumber); 
+        }
+
+        // --- 事件監聽器 ---
+        guessButton.addEventListener('click', checkGuess);
+        
+        // 讓用戶按 Enter 鍵時，點擊按鈕
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !guessButton.disabled) {
+                checkGuess();
+            }
+        });
+
+        // 每次點擊數字輸入欄位後，自動觸發輸入檢查（如果目標是自動補齊）
+        // 由於我們的邏輯已經限制了 maxlength=1，我們只監聽 Enter 鍵即可。
+
+        // 初始化遊戲
+        initializeGame();
+    </script>
+</body>
+</html>
