@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>踩地雷 (Minesweeper)</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #d9d9d9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #333;
+            padding: 20px;
+        }
+        .container {
+            background-color: #c0c0c0; /* 模擬老式電腦外殼 */
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            width: 100%;
+            max-width: 600px;
+        }
+        h1 {
+            color: #0056b3;
+            margin-bottom: 10px;
+        }
+        #game-board {
+            display: grid;
+            border: 2px solid #333;
+            margin: 20px auto;
+        }
+        .cell {
+            border: 1px solid #999;
+            background-color: #bbb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.2em;
+            font-weight: bold;
+            user-select: none;
+            cursor: pointer;
+        }
+        /* 點擊後被揭開的格子 */
+        .revealed {
+            background-color: #eee;
+            cursor: default;
+            border: 1px solid #aaa;
+        }
+        
+        /* 不同的數字顏色，更直觀 */
+        .value-1 { color: blue; }
+        .value-2 { color: green; }
+        .value-3 { color: red; }
+        .value-4 { color: purple; }
+        .value-5 { color: orange; }
+        .value-6 { color: teal; }
+        .value-7 { color: darkred; }
+        .value-8 { color: navy; }
+
+        /* 爆雷的特別樣式 */
+        .mine {
+            background-color: #ff6666;
+            font-size: 1.5em;
+        }
+
+        /* 遊戲狀態指示器 */
+        #status-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .mine-counter {
+            background-color: #ddd;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 450px) {
+            .cell {
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body id="bg">
+    <div class="container">
+        <h1 id="title">💣 踩地雷 (Minesweeper) 💣</h1>
+        <p id="instructions">點擊遊戲區域開始，尋找所有地雷！</p>
+        
+        <div id="status-bar">
+            <div>旗幟：<span id="flag-count">0</span>/0</div>
+            <div>地雷：<span id="mine-count">10</span></div>
+        </div>
+
+        <div id="game-board">
+            <!-- 盤面會由 JavaScript 填充 -->
+        </div>
+
+        <div id="message" style="margin-top: 20px;">點擊開始遊戲...</div>
+
+        <div style="margin-top: 20px;">
+            <button id="resetButton" style="padding: 10px 30px; background-color: #3f51b5; color: white; border: none; border-radius: 8px; cursor: pointer;">重新開始遊戲</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 遊戲常數 ---
+        const ROWS = 10; // 盤面行數
+        const COLS = 10; // 盤面列數
+        const NUM_MINES = 10; // 地雷數量
+        
+        // --- 遊戲狀態 ---
+        let board = []; // 儲存地雷內容的二維陣列 (true=地雷, number=數字, false=安全)
+        let isGameOver = false;
+        let isFirstClick = true;
+        let revealedCount = 0;
+
+        // --- DOM 元素 ---
+        const gameBoardElement = document.getElementById('game-board');
+        const messageDisplay = document.getElementById('message');
+        const resetButton = document.getElementById('resetButton');
+        const mineCountDisplay = document.getElementById('mine-count');
+        const flagDisplay = document.getElementById('flag-count');
+
+        // --- 輔助函數 ---
+        function getCoordsFromEvent(event) {
+            const cell = event.target.closest('.cell');
+            if (!cell) return null;
+
+            const r = parseInt(cell.dataset.row);
+            const c = parseInt(cell.dataset.col);
+            return {r: r, c: c};
+        }
+
+        // =========================================
+        // 1. 初始化函數
+        // =========================================
+        function initializeGame() {
+            // 重置所有狀態
+            board = Array(ROWS).fill(0).map(() => Array(COLS).fill(null));
+            isGameOver = false;
+            isFirstClick = true;
+            revealedCount = 0;
+            
+            // 初始化地雷和數字
+            placeMines();
+            calculateNumbers();
+
+            // 繪製盤面
+            drawBoard();
+            updateStatus();
+            showMessage("點擊任何格子開始遊戲...", 'info-message');
+        }
+
+        /**
+         * 核心：隨機生成地雷
+         */
+        function placeMines() {
+            let minesPlaced = 0;
+            let placedCoordinates = new Set();
+
+            while (minesPlaced < NUM_MINES) {
+                const r = Math.floor(Math.random() * ROWS);
+                const c = Math.floor(Math.random() * COLS);
+                const key = `${r},${c}`;
+
+                if (!placedCoordinates.has(key)) {
+                    board[r][c] = true; // true 代表地雷
+                    placedCoordinates.add(key);
+                    minesPlaced++;
+                }
+            }
+        }
+        
+        /**
+         * 計算地雷周圍的數字
+         * (這個步驟是地雷遊戲的核心邏輯)
+         */
+        function calculateNumbers() {
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (board[r][c] === null) { // 只有非地雷的格子需要計算數字
+                        let count = 0;
+                        // 檢查周圍 8 個鄰居
+                        for (let dr = -1; dr <= 1; dr++) {
+                            for (let dc = -1; dc <= 1; dc++) {
+                                if (dr === 0 && dc === 0) continue; // 不檢查自身
+                                
+                                const nr = r + dr;
+                                const nc = c + dc;
+
+                                // 邊界檢查
+                                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                                    if (board[nr][nc] === true) {
+                                        count++;
+                                    }
+                                }
+                            }
+                        }
+                        // 儲存數字 (數字的範圍是 1-8)
+                        board[r][c] = count; 
+                    }
+                }
+            }
+        }
+
+
+        /**
+         * 繪製整個遊戲盤面
+         */
+        function drawBoard() {
+            // ... (Drawing logic remains the same as other games) ...
+            const boardElement = document.getElementById('game-board');
+            boardElement.innerHTML = ''; 
+
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    cell.onclick = () => {
+                        if (isGameOver) return;
+                        
+                        // 區分玩家點擊和標記旗幟
+                        if (isFirstClick && board[r][c] === true) {
+                            // 第一次點擊不能踩雷，需要特殊處理，但目前我們假設第一次點擊總是安全的
+                        }
+                        
+                        handleCellClick(r, c);
+                    };
+                    
+                    // 繪製石子
+                    drawStone(cell, r, c);
+                    boardElement.appendChild(cell);
+                }
+            }
+        }
+        
+        /**
+         * 處理點擊邏輯 (核心修復點)
+         */
+        function handleCellClick(r, c) {
+            if (isGameOver) return;
+
+            // 1. 第一次點擊的例外處理
+            if (isFirstClick) {
+                // 如果第一次點擊是雷，則遊戲立即結束
+                if (board[r][c] === true) {
+                    revealMine(r, c, true);
+                    endGame(false);
+                    return;
+                }
+                // 否則，可以先落雷，然後恢復地雷的邏輯
+                isFirstClick = false;
+            }
+
+            // 2. 點擊操作
+            if (board[r][c] === true) {
+                // 踩到雷！
+                revealMine(r, c, true);
+                endGame(false);
+            } else if (board[r][c] === 0) {
+                // 如果該格子是空白，則不做什麼（或提供遊戲提示）
+                showMessage("這裡沒有地雷！請嘗試別的地方！", 'error-message');
+            } else if (board[r][c] !== null && board[r][c] !== true) {
+                // 這是數字或空白，可以揭開
+                revealCell(r, c);
+            }
+        }
+        
+        /**
+         * 揭開單元格 (Reveal)
+         */
+        function revealCell(r, c) {
+            const cellElement = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+            if (!cellElement) return;
+
+            const value = board[r][c];
+            const cellValue = document.createElement('div');
+            cellValue.classList.add('revealed');
+            cellValue.textContent = value === 0 ? '' : value;
+            
+            // 移除任何舊的石子，加入揭開的樣式
+            cellElement.innerHTML = '';
+            cellElement.appendChild(cellValue);
+
+            // 邏輯：如果數字為 0，則需要遞歸地揭開周圍的空位
+            if (value === 0) {
+                // TODO: 實現遞歸的開格子邏輯 (Flood Fill Algorithm)
+                // 這是 Minesweeper 的核心邏輯。
+            }
+        }
+
+        /**
+         * 爆雷的視覺處理
+         * @param {number} r - 行
+         * @param {number} c - 列
+         * @param {boolean} wasFirstClick - 是否在第一次點擊就踩到雷
+         */
+        function revealMine(r, c, wasFirstClick) {
+            const cellElement = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+            if (!cellElement) return;
+
+            cellElement.classList.add('revealed');
+            cellElement.innerHTML = '<span class="mine">💣</span>';
+            // 播放爆炸動畫 (可新增)
+        }
+        
+        /**
+         * 遊戲結束處理
+         */
+        function endGame(wonByPlayer) {
+            if (isGameOver) return;
+            isGameOver = true;
+            
+            let message;
+            if (wonByPlayer) {
+                message = "✅ 恭喜您！您避開所有地雷，成功通關了！";
+            } else if (isBoardFull()) {
+                message = "😭 盤面已滿，但您沒有踩到雷，遊戲平局！";
+            } else {
+                message = "💣 哎呀！你踩到地雷了！遊戲結束。";
+            }
+            showMessage(message, 'error-message');
+            
+            // 邏輯：遊戲結束後，應該顯示所有地雷的位置
+            revealAllMines();
+        }
+
+        // --- 輔助函數 ---
+
+        function updateStatus() {
+            // 假設每個格子的目標點擊次數等於 (總格子數 - 初始地雷數)
+            const totalCells = ROWS * COLS;
+            const safeCells = totalCells - NUM_MINES;
+            
+            // 旗幟計算
+            flagDisplay.textContent = `0/${NUM_MINES}`;
+            mineCountDisplay.textContent = NUM_MINES;
+        }
+
+        function showMessage(message, typeClass) {
+            messageDisplay.className = ''; 
+            messageDisplay.textContent = message;
+            messageDisplay.classList.add(typeClass || 'info-message');
+        }
+
+        // --- 遊戲主循環 ---
+        
+        // 這裡需要一個模擬的開始步驟，因為點擊邏輯在 handleCellClick 中處理。
+        
+        // --- 事件綁定 ---
+        document.getElementById('resetButton').addEventListener('click', () => {
+            if (confirm("確定要重新開始遊戲？所有進度都會丟失。")) {
+                initializeGame();
+            }
+        });
+
+        // 遊戲初始化
+        initializeGame();
+    </script>
+</body >
+</html>
